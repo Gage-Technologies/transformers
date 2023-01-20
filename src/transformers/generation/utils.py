@@ -1905,6 +1905,15 @@ class GenerationMixin:
                 full_hidden_states = outputs.hidden_states
             context_hidden = last_hidden_states.repeat_interleave(top_k, dim=0)
 
+            # conditionally convert from float16 to float32 since the internal `baddbmm_with_gemm` function does not
+            # support float16
+            if context_hidden.dtype == torch.float16:
+                context_hidden = context_hidden.to(dtype=torch.float32)
+            if next_hidden.dtype == torch.float16:
+                next_hidden = next_hidden.to(dtype=torch.float32)
+            if top_k_probs.dtype == torch.float16:
+                top_k_probs = top_k_probs.to(dtype=torch.float32)
+
             # compute the degeneration penalty and re-rank the candidates based on the degeneration penalty and the
             # model confidence
             selected_idx = _ranking_fast(context_hidden, next_hidden, top_k_probs, penalty_alpha, top_k)

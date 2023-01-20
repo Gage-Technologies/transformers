@@ -1432,6 +1432,30 @@ class GenerationTesterMixin:
             )
             self.assertListEqual(output_contrastive.tolist(), output_generate.tolist())
 
+    def test_contrastive_generate_fp16(self):
+        # check `generate()` and `contrastive_search()` are equal
+        for model_class in self.all_generative_model_classes:
+
+            # won't fix: FSMT and Reformer have a different cache variable type (and format).
+            if any(model_name in model_class.__name__.lower() for model_name in ["fsmt", "reformer"]):
+                return
+
+            config, input_ids, attention_mask, max_length = self._get_input_ids_and_config()
+
+            # NOTE: contrastive search only works with cache on at the moment.
+            if not hasattr(config, "use_cache"):
+                return
+            config.use_cache = True
+            config.is_decoder = True
+            config.torch_dtype = torch.float16
+
+            # test old generation output for backwards compatibility
+            model = model_class(config).to(torch_device).eval()
+            output_contrastive, output_generate = self._contrastive_generate(
+                model=model, input_ids=input_ids, attention_mask=attention_mask, max_length=max_length
+            )
+            self.assertListEqual(output_contrastive.tolist(), output_generate.tolist())
+
     def test_contrastive_generate_dict_outputs_use_cache(self):
         for model_class in self.all_generative_model_classes:
 
